@@ -2,92 +2,42 @@ document.addEventListener("DOMContentLoaded", () => {
     // Inicializar cupones predeterminados si no existen
     inicializarCuponesPredeterminados();
     
-    // Verificar que los elementos de credencial existan y estén configurados correctamente
-    const credencialPreview = document.getElementById("credencialPreview");
-    const credencialUpload = document.getElementById("credencialUpload");
-    const removeCredencial = document.getElementById("removeCredencial");
-    
-    if (credencialPreview && credencialUpload && removeCredencial) {
-        console.log("Elementos de credencial encontrados y configurados correctamente");
-        
-        // Asegurarse de que el área de vista previa sea clickeable
-        credencialPreview.addEventListener("click", function() {
-            credencialUpload.click();
+    // Verificar si hay elementos de credenciales
+    const credencialElements = document.querySelectorAll('.credencial-element');
+    if (credencialElements.length > 0) {
+        credencialElements.forEach(element => {
+            element.style.display = 'none';
         });
-    } else {
-        console.error("Algunos elementos de credencial no se encontraron:", 
-            {credencialPreview, credencialUpload, removeCredencial});
     }
 
-    const usuarioActual = localStorage.getItem("usuario_actual");
-    const sesionActiva = localStorage.getItem("sesion_activa");
-    
-    if (usuarioActual && sesionActiva === "true") {
-        const usuario = JSON.parse(usuarioActual);
-        
-        // Actualizar fecha de último acceso
-        usuario.ultimoAcceso = new Date().toISOString();
-        localStorage.setItem("usuario_actual", JSON.stringify(usuario));
-        
-        // Actualizar también en la lista de usuarios
-        let usuarios = JSON.parse(localStorage.getItem("usuarios") || "[]");
-        const index = usuarios.findIndex(u => u.email === usuario.email);
-        if (index !== -1) {
-            usuarios[index].ultimoAcceso = usuario.ultimoAcceso;
-            localStorage.setItem("usuarios", JSON.stringify(usuarios));
-        }
-        
+    // Verificar si hay una sesión activa
+    const sesionActiva = localStorage.getItem('sesion_activa') === 'true';
+    const usuarioActual = JSON.parse(localStorage.getItem('usuario_actual'));
+
+    if (sesionActiva && usuarioActual) {
+        // Ocultar secciones de autenticación
         document.querySelector('.intro-section').style.display = 'none';
-        document.getElementById("auth-nav").style.display = "none";
-        mostrarApp(usuario);
-    } else {
-        // Limpiar cualquier sesión pendiente
-        localStorage.removeItem("usuario_actual");
-        localStorage.removeItem("sesion_activa");
+        document.getElementById('auth-nav').style.display = 'none';
+        document.getElementById('registro').style.display = 'none';
+        document.getElementById('login').style.display = 'none';
+
+        // Mostrar la aplicación
+        mostrarApp(usuarioActual);
         
+        // Mostrar la sección de videos por defecto
+        mostrarSeccion('videos');
+    } else {
+        // Mostrar secciones de autenticación
         document.querySelector('.intro-section').style.display = 'block';
-        document.getElementById("auth-nav").style.display = "flex";
-        document.getElementById("registro").style.display = "none";
-        document.getElementById("login").style.display = "none";
-        document.getElementById("main-nav").style.display = "none";
-        document.getElementById("mobile-nav").style.display = "none";
-
-        // Mostrar mensaje de bienvenida para visitantes nuevos
-        if (!localStorage.getItem("bienvenida_mostrada")) {
-            setTimeout(() => {
-                mostrarBienvenida("visitante");
-            }, 1000);
-        }
-
-        // Aplicar estilos específicos para botones en modo móvil
-        if (window.innerWidth <= 768) {
-            const authNav = document.getElementById('auth-nav');
-            authNav.style.flexDirection = 'row';
-            authNav.style.justifyContent = 'flex-end';
-            authNav.style.flex = '0 0 auto';
-
-            // Aplicar estilos a los botones
-            const buttons = authNav.querySelectorAll('.btn');
-            buttons.forEach(btn => {
-                const text = btn.querySelector('.btn-text');
-                if (text) text.style.display = 'none';
-
-                btn.style.width = '40px';
-                btn.style.height = '40px';
-                btn.style.padding = '0';
-                btn.style.borderRadius = '50%';
-                btn.style.minWidth = '40px';
-            });
-        }
+        document.getElementById('auth-nav').style.display = 'flex';
+        document.getElementById('registro').style.display = 'none';
+        document.getElementById('login').style.display = 'none';
     }
 
-    // Iniciar el carrusel
+    // Configurar el carrusel
     actualizarCarrusel();
 
-    // Configurar intervalo para el carrusel
-    setInterval(() => moverCarrusel(1), 5000);
-
-    // Configurar animación de estadísticas
+    // Configurar la animación de estadísticas
     configurarAnimacionEstadisticas();
 });
 
@@ -276,87 +226,126 @@ function mostrarFormularioRegistro() {
 }
 
 function iniciarSesion() {
-    const identificador = document.getElementById('identificador').value;
-    const clave = document.getElementById('claveLogin').value;
+    const identificador = document.getElementById("identificador").value;
+    const clave = document.getElementById("claveLogin").value;
 
     if (!identificador || !clave) {
-        mostrarMensaje('Por favor, completa todos los campos', 'error');
+        mostrarMensaje("Por favor, completa todos los campos", "error");
         return;
     }
 
-    let usuarios = JSON.parse(localStorage.getItem('usuarios')) || [];
-    const usuario = usuarios.find(u => u.correo === identificador || u.matricula === identificador);
+    // Obtener usuarios
+    const usuarios = JSON.parse(localStorage.getItem("usuarios") || "[]");
 
-    if (usuario && usuario.clave === clave) {
-        localStorage.setItem('usuario_actual', JSON.stringify(usuario));
-        localStorage.setItem('sesion_activa', 'true');
-        mostrarApp(usuario);
-        mostrarMensaje('¡Bienvenido de nuevo!', 'success');
-    } else {
-        mostrarMensaje('Credenciales incorrectas', 'error');
+    // Buscar usuario por correo o matrícula
+    const usuario = usuarios.find(u => 
+        u.email === identificador || u.matricula === identificador
+    );
+
+    if (!usuario) {
+        mostrarMensaje("Usuario no encontrado", "error");
+        return;
     }
+
+    if (usuario.clave !== clave) {
+        mostrarMensaje("Contraseña incorrecta", "error");
+        return;
+    }
+
+    // Actualizar último acceso
+    usuario.ultimoAcceso = new Date().toISOString();
+    localStorage.setItem("usuario_actual", JSON.stringify(usuario));
+    localStorage.setItem("sesion_activa", "true");
+
+    // Actualizar también en la lista de usuarios
+    const index = usuarios.findIndex(u => u.email === usuario.email);
+    if (index !== -1) {
+        usuarios[index].ultimoAcceso = usuario.ultimoAcceso;
+        localStorage.setItem("usuarios", JSON.stringify(usuarios));
+    }
+
+    // Mostrar mensaje de éxito
+    mostrarMensaje("¡Bienvenido de nuevo!", "success");
+
+    // Ocultar secciones de autenticación
+    document.querySelector('.intro-section').style.display = 'none';
+    document.getElementById("auth-nav").style.display = "none";
+    document.getElementById("registro").style.display = "none";
+    document.getElementById("login").style.display = "none";
+
+    // Mostrar la aplicación
+    mostrarApp(usuario);
+
+    // Mostrar bienvenida
+    mostrarBienvenida('login', usuario.nombre);
 }
 
 function crearUsuario() {
-    const correo = document.getElementById('correo').value;
-    const nombre = document.getElementById('nombre').value;
-    const matricula = document.getElementById('matricula').value;
-    const materia = document.getElementById('materia').value;
-    const semestre = document.getElementById('semestre').value;
-    const grupo = document.getElementById('grupo').value;
-    const clave = document.getElementById('clave').value;
+    const email = document.getElementById("correo").value;
+    const nombre = document.getElementById("nombre").value;
+    const apellidoPaterno = document.getElementById("apellidoPaterno").value;
+    const apellidoMaterno = document.getElementById("apellidoMaterno").value;
+    const clave = document.getElementById("clave").value;
+    const matricula = document.getElementById("matricula").value;
+    const materia = document.getElementById("materia").value;
+    const grado = document.getElementById("grado").value;
 
-    if (!validarDominioCorreo(correo)) {
-        mostrarMensaje('Por favor, utiliza un correo electrónico con los dominios permitidos: @cancun.tecnm.mx o @cecyteqroo.edu.mx', 'error');
+    // Validar que todos los campos estén llenos
+    if (!email || !nombre || !apellidoPaterno || !apellidoMaterno || !clave || !matricula || !materia || !grado) {
+        mostrarMensaje("Por favor, completa todos los campos", "error");
         return;
     }
 
-    if (!correo || !nombre || !matricula || !materia || !semestre || !grupo || !clave) {
-        mostrarMensaje('Por favor, completa todos los campos', 'error');
+    // Obtener usuarios existentes
+    let usuarios = JSON.parse(localStorage.getItem("usuarios") || "[]");
+
+    // Verificar si el correo o la matrícula ya están registrados
+    if (usuarios.some(u => u.email === email)) {
+        mostrarMensaje("Este correo electrónico ya está registrado", "error");
         return;
     }
 
-    let usuarios = JSON.parse(localStorage.getItem('usuarios')) || [];
-
-    if (usuarios.some(u => u.correo === correo)) {
-        mostrarMensaje('Este correo electrónico ya está registrado', 'error');
+    if (usuarios.some(u => u.matricula === matricula)) {
+        mostrarMensaje("Esta matrícula ya está registrada", "error");
         return;
     }
 
+    // Crear nuevo usuario con nombre completo
+    const nombreCompleto = `${nombre} ${apellidoPaterno} ${apellidoMaterno}`;
     const nuevoUsuario = {
-        correo,
-        nombre,
+        email,
+        nombre: nombreCompleto,
+        nombreIndividual: nombre,
+        apellidoPaterno,
+        apellidoMaterno,
+        clave,
         matricula,
         materia,
-        semestre,
-        grupo,
-        clave,
+        grado,
         puntos: 0,
         nivel: 1,
         insignias: [],
         desafiosCompletados: [],
-        pdfsLeidos: [],
         ultimoAcceso: new Date().toISOString()
     };
 
+    // Agregar usuario a la lista
     usuarios.push(nuevoUsuario);
-    localStorage.setItem('usuarios', JSON.stringify(usuarios));
-    localStorage.setItem('usuario_actual', JSON.stringify(nuevoUsuario));
-    localStorage.setItem('sesion_activa', 'true');
+    localStorage.setItem("usuarios", JSON.stringify(usuarios));
 
-    mostrarMensaje('Usuario creado exitosamente', 'success');
-    mostrarApp(nuevoUsuario);
-}
-
-function mostrarApp(usuario) {
     // Iniciar sesión automáticamente
-    localStorage.setItem('usuario_actual', JSON.stringify(nuevoUsuario));
-    
+    localStorage.setItem("usuario_actual", JSON.stringify(nuevoUsuario));
+    localStorage.setItem("sesion_activa", "true");
+
     // Mostrar mensaje de éxito
-    alert('Usuario creado exitosamente');
-    
-    // Actualizar la interfaz
-    actualizarInterfaz();
+    mostrarMensaje("¡Usuario creado exitosamente!", "success");
+    mostrarConfeti();
+
+    // Mostrar la aplicación
+    mostrarApp(nuevoUsuario);
+
+    // Mostrar bienvenida cada vez que se registra
+    mostrarBienvenida('registro', nuevoUsuario.nombre);
 }
 
 function mostrarApp(usuario) {
@@ -384,7 +373,7 @@ function mostrarApp(usuario) {
 
 function actualizarBarraProgreso(usuario) {
     const puntosActuales = usuario.puntos || 0;
-    const puntosSiguienteNivel = 100; // Puntos necesarios para el siguiente nivel
+    const puntosSiguienteNivel = 700; // Puntos necesarios para el siguiente nivel
     const porcentaje = Math.min((puntosActuales / puntosSiguienteNivel) * 100, 100);
     
     // Actualizar la barra de progreso
@@ -592,6 +581,12 @@ function subirEvidencia(desafioId) {
     
     localStorage.setItem('usuario_actual', JSON.stringify(usuario));
     
+    // Actualizar interfaz
+    document.getElementById('nivel-badge').textContent = `Nivel ${usuario.nivel}`;
+    if (document.getElementById('user-credits')) {
+        document.getElementById('user-credits').textContent = usuario.creditos;
+    }
+    
     // Actualizar en la lista de usuarios
     let usuarios = JSON.parse(localStorage.getItem('usuarios'));
     const index = usuarios.findIndex(u => u.email === usuario.email);
@@ -639,7 +634,7 @@ function completarDesafio(desafioId) {
 
     // Verificar si sube de nivel
     const nivelActual = usuarioActual.nivel || 1;
-    const puntosSiguienteNivel = nivelActual * 100;
+    const puntosSiguienteNivel = nivelActual * 700;
     
     if (usuarioActual.puntos >= puntosSiguienteNivel) {
         usuarioActual.nivel = nivelActual + 1;
@@ -941,7 +936,6 @@ function cerrarSesion() {
         
         // Mostrar elementos de inicio
         document.querySelector('.intro-section').style.display = 'block';
-        document.getElementById("auth-nav").style.display = "flex"; // Asegurar que los botones de autenticación se muestren
         document.getElementById("registro").style.display = "none";
         document.getElementById("login").style.display = "none";
 
@@ -986,7 +980,9 @@ function verPerfil() {
         document.getElementById("insignias-perfil").textContent = usuarioActual.insignias || 0;
         
         // Rellenar el formulario con los datos del usuario
-        document.getElementById("perfilNombre").value = usuarioActual.nombre;
+        document.getElementById("perfilNombre").value = usuarioActual.nombreIndividual || usuarioActual.nombre.split(' ')[0] || '';
+        document.getElementById("perfilApellidoPaterno").value = usuarioActual.apellidoPaterno || usuarioActual.nombre.split(' ')[1] || '';
+        document.getElementById("perfilApellidoMaterno").value = usuarioActual.apellidoMaterno || usuarioActual.nombre.split(' ')[2] || '';
         document.getElementById("perfilEmail").value = usuarioActual.email;
         document.getElementById("perfilClave").value = "";
         
@@ -1006,15 +1002,9 @@ function verPerfil() {
         document.getElementById("credencialPreview").onclick = function() {
             document.getElementById("credencialUpload").click();
         };
-        
+     
         // Mostrar el modal
         modal.style.display = "block";
-        
-        // Mensaje para confirmar que la sección de credencial está visible
-        console.log("Modal de perfil abierto con sección de credencial");
-    } else {
-        alert("Debe iniciar sesión para ver su perfil");
-        mostrarFormularioLogin();
     }
 }
 
@@ -1075,13 +1065,24 @@ function actualizarPerfil(event) {
     event.preventDefault();
     
     const usuarioActual = JSON.parse(localStorage.getItem("usuario_actual"));
-    const nuevoNombre = document.getElementById("perfilNombre").value;
+    const nombre = document.getElementById("perfilNombre").value;
+    const apellidoPaterno = document.getElementById("perfilApellidoPaterno").value;
+    const apellidoMaterno = document.getElementById("perfilApellidoMaterno").value;
     const nuevoEmail = document.getElementById("perfilEmail").value;
     const nuevaClave = document.getElementById("perfilClave").value;
     
+    // Validar campos requeridos
+    if (!nombre || !apellidoPaterno || !apellidoMaterno || !nuevoEmail) {
+        mostrarMensaje("Por favor, completa todos los campos obligatorios", "error");
+        return;
+    }
+    
     if (usuarioActual) {
         // Actualizar datos del usuario
-        usuarioActual.nombre = nuevoNombre;
+        usuarioActual.nombre = `${nombre} ${apellidoPaterno} ${apellidoMaterno}`;
+        usuarioActual.nombreIndividual = nombre;
+        usuarioActual.apellidoPaterno = apellidoPaterno;
+        usuarioActual.apellidoMaterno = apellidoMaterno;
         usuarioActual.email = nuevoEmail;
         
         // Actualizar contraseña solo si se proporciona una nueva
@@ -1388,98 +1389,61 @@ function filtrarDesafios() {
 
 // Funciones para videos educativos
 function abrirVideo(videoId, titulo, descripcion) {
-    const videoModal = document.getElementById('videoModal');
-    const videoIframe = document.getElementById('videoIframe');
+    const modal = document.getElementById('videoModal');
+    const iframe = document.getElementById('videoIframe');
     const videoTitle = document.getElementById('videoTitle');
     const videoDescription = document.getElementById('videoDescription');
-
-    videoIframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+    
+    // Configurar el iframe con el video
+    iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+    
+    // Actualizar título y descripción
     videoTitle.textContent = titulo;
     videoDescription.textContent = descripcion;
-    videoModal.style.display = 'flex';
+    
+    // Mostrar el modal
+    modal.style.display = 'flex';
+    
+    // Prevenir scroll en el body
+    document.body.style.overflow = 'hidden';
 }
 
 function cerrarVideo() {
-    const videoModal = document.getElementById('videoModal');
-    const videoIframe = document.getElementById('videoIframe');
-    videoIframe.src = '';
-    videoModal.style.display = 'none';
+    const modal = document.getElementById('videoModal');
+    const iframe = document.getElementById('videoIframe');
+    
+    // Detener el video
+    iframe.src = '';
+    
+    // Ocultar el modal
+    modal.style.display = 'none';
+    
+    // Restaurar scroll en el body
+    document.body.style.overflow = 'auto';
 }
 
 function filtrarVideos(categoria) {
     const videos = document.querySelectorAll('.video-card');
     const filtros = document.querySelectorAll('.video-filter');
-
+    
     // Actualizar botones de filtro
     filtros.forEach(filtro => {
-        filtro.classList.toggle('active', filtro.getAttribute('onclick').includes(categoria));
+        if (filtro.textContent.toLowerCase().includes(categoria) || 
+            (filtro.textContent.toLowerCase() === 'todos' && categoria === 'todos')) {
+            filtro.classList.add('active');
+        } else {
+            filtro.classList.remove('active');
+        }
     });
-
+    
     // Filtrar videos
     videos.forEach(video => {
-        if (categoria === 'todos' || video.getAttribute('data-category') === categoria) {
+        if (categoria === 'todos' || video.dataset.category === categoria) {
             video.style.display = 'block';
         } else {
             video.style.display = 'none';
         }
     });
-}
-
-function canjearRecompensa(tipo, costo) {
-    const usuarioActual = JSON.parse(localStorage.getItem('usuario_actual'));
-    if (!usuarioActual) return;
-
-    if (usuarioActual.puntos < costo) {
-        mostrarMensaje('No tienes suficientes puntos para canjear esta recompensa', 'error');
-        return;
-    }
-
-    if (!usuarioActual.recompensasCanjeadas) {
-        usuarioActual.recompensasCanjeadas = [];
-    }
-
-    // Verificar si ya canjeó esta recompensa
-    if (usuarioActual.recompensasCanjeadas.includes(tipo)) {
-        mostrarMensaje('Ya has canjeado esta recompensa', 'info');
-        return;
-    }
-
-    // Procesar el canje según el tipo
-    switch(tipo) {
-        case 'punto_1':
-        case 'punto_2':
-        case 'punto_3':
-            const puntos = parseInt(tipo.split('_')[1]);
-            usuarioActual.puntosExtra = (usuarioActual.puntosExtra || 0) + puntos;
-            break;
-        case 'horas_10':
-        case 'horas_20':
-        case 'horas_30':
-        case 'horas_40':
-            const horas = parseInt(tipo.split('_')[1]);
-            usuarioActual.horasServicioSocial = (usuarioActual.horasServicioSocial || 0) + horas;
-            break;
-    }
-
-    // Actualizar puntos y registrar recompensa
-    usuarioActual.puntos -= costo;
-    usuarioActual.recompensasCanjeadas.push(tipo);
-
-    // Guardar cambios
-    localStorage.setItem('usuario_actual', JSON.stringify(usuarioActual));
-    
-    // Actualizar también en la lista de usuarios
-    let usuarios = JSON.parse(localStorage.getItem('usuarios')) || [];
-    const index = usuarios.findIndex(u => u.correo === usuarioActual.correo);
-    if (index !== -1) {
-        usuarios[index] = usuarioActual;
-        localStorage.setItem('usuarios', JSON.stringify(usuarios));
-    }
-
-    // Actualizar interfaz
-    actualizarBarraProgreso(usuarioActual);
-    mostrarMensaje('¡Recompensa canjeada exitosamente!', 'success');
-    mostrarConfeti();
 }
 
 // Cerrar el modal de video al hacer clic fuera del contenido
@@ -1784,9 +1748,9 @@ function mostrarBienvenida(tipo, nombre = "") {
             break;
             
         case "login":
-            titulo.textContent = `¡Hola de nuevo, ${nombre}!`;
-            texto.textContent = "Nos alegra verte de vuelta. Continúa con tus desafíos ambientales y sigue haciendo la diferencia en nuestro planeta.";
-            boton.textContent = "Continuar mi viaje";
+            titulo.textContent = `¡Bienvenido a Econnect!`;
+            texto.innerHTML = `Una plataforma educativa que transforma tus acciones en impacto.<br><br>Econnect está diseñada para motivar a estudiantes y comunidades a adoptar hábitos sostenibles mediante desafíos, quizzes y recompensas.<br><br>Nuestro objetivo es fomentar la conciencia ambiental y promover la acción colectiva, logrando un cambio positivo y medible en el entorno que compartimos.`;
+            boton.textContent = "Comenzar mi viaje verde";
             break;
             
         default: // visitante
@@ -2238,9 +2202,9 @@ function evaluarQuiz() {
         usuario.puntos += puntosExtra;
         
         // Actualizar nivel si es necesario
-        if (usuario.puntos >= 100) {
+        if (usuario.puntos >= 700) {
             usuario.nivel++;
-            usuario.puntos -= 100;
+            usuario.puntos -= 700;
             mostrarNotificacion(`¡Felicidades! Has subido al nivel ${usuario.nivel}.`);
         }
         
@@ -2264,443 +2228,89 @@ function evaluarQuiz() {
     // Ocultar botón de enviar y mostrar resultados
     document.getElementById("submitQuiz").style.display = "none";
     resultadosContainer.style.display = "block";
+}    
+
+// Funciones para recuperar contraseña
+function mostrarRecuperarContrasena() {
+    const modal = document.getElementById("recuperarContrasenaModal");
+    modal.style.display = "block";
+    
+    // Limpiar formulario
+    document.getElementById("formRecuperarContrasena").reset();
 }
 
-function mostrarPDF(desafioId) {
-    const pdfModal = document.getElementById('pdfModal');
-    const pdfViewer = document.getElementById('pdfViewer');
-    const pdfTitle = document.getElementById('pdfTitle');
-    
-    // Configurar el título según el desafío
-    switch(desafioId) {
-        case 'termo-tupper':
-            pdfTitle.textContent = 'Guía: Mes del Termo y Tupper';
-            pdfViewer.src = 'pdfs/guia-termo-tupper.pdf';
-            break;
-        case 'bolsa-ecologica':
-            pdfTitle.textContent = 'Guía: Bolsa Ecológica';
-            pdfViewer.src = 'pdfs/guia-bolsa-ecologica.pdf';
-            break;
-        case 'trueque-prendas':
-            pdfTitle.textContent = 'Guía: Trueque de Prendas';
-            pdfViewer.src = 'pdfs/Trueque de prendas.pdf';
-            break;
-        case 'ahorro-agua':
-            pdfTitle.textContent = 'Guía: Ahorro de Agua';
-            pdfViewer.src = 'pdfs/Ahorra agua con una botella.pdf';
-            break;
-        case 'recicla-pet':
-            pdfTitle.textContent = 'Guía: Reciclaje de PET';
-            pdfViewer.src = 'pdfs/Recicla PET.pdf';
-            break;
-        case 'recicla-tapitas':
-            pdfTitle.textContent = 'Guía: Reciclaje de Tapitas';
-            pdfViewer.src = 'pdfs/Recicla tapitas.pdf';
-            break;
-    }
-    
-    pdfModal.style.display = 'flex';
+function cerrarModalRecuperarContrasena() {
+    const modal = document.getElementById("recuperarContrasenaModal");
+    modal.style.display = "none";
 }
 
-function cerrarPDF() {
-    const pdfModal = document.getElementById('pdfModal');
-    const pdfViewer = document.getElementById('pdfViewer');
-    pdfViewer.src = '';
-    pdfModal.style.display = 'none';
-}
-
-function marcarPDFLeido() {
-    const usuarioActual = JSON.parse(localStorage.getItem('usuario_actual'));
-    if (usuarioActual) {
-        if (!usuarioActual.pdfsLeidos) {
-            usuarioActual.pdfsLeidos = [];
-        }
-        const pdfActual = document.getElementById('pdfViewer').src.split('/').pop();
-        if (!usuarioActual.pdfsLeidos.includes(pdfActual)) {
-            usuarioActual.pdfsLeidos.push(pdfActual);
-            localStorage.setItem('usuario_actual', JSON.stringify(usuarioActual));
-            mostrarMensaje('¡PDF marcado como leído!', 'success');
-            
-            // Obtener el ID del desafío actual
-            let desafioId = '';
-            switch(pdfActual) {
-                case 'guia-termo-tupper.pdf':
-                    desafioId = 'termo-tupper';
-                    break;
-                case 'guia-bolsa-ecologica.pdf':
-                    desafioId = 'bolsa-ecologica';
-                    break;
-                case 'Trueque de prendas.pdf':
-                    desafioId = 'trueque-prendas';
-                    break;
-                case 'Ahorra agua con una botella.pdf':
-                    desafioId = 'ahorro-agua';
-                    break;
-                case 'Recicla PET.pdf':
-                    desafioId = 'recicla-pet';
-                    break;
-                case 'Recicla tapitas.pdf':
-                    desafioId = 'recicla-tapitas';
-                    break;
-            }
-            
-            // Cerrar el modal del PDF
-            cerrarPDF();
-            
-            // Abrir el quiz correspondiente
-            if (desafioId) {
-                setTimeout(() => {
-                    mostrarQuiz(desafioId, `Quiz: ${document.getElementById('pdfTitle').textContent}`);
-                }, 500);
-            }
-        }
-    }
-    cerrarPDF();
-}
-
-function mostrarQuiz(desafioId) {
-    const quizModal = document.getElementById('quizModal');
-    const quizTitulo = document.getElementById('quizTitulo');
-    const quizQuestions = document.getElementById('quizQuestions');
-    const quizResults = document.getElementById('quizResults');
+function recuperarContrasena(event) {
+    event.preventDefault();
     
-    // Ocultar resultados y mostrar preguntas
-    quizResults.style.display = 'none';
-    quizQuestions.innerHTML = '';
+    const identificador = document.getElementById("identificadorRecuperar").value;
+    const nuevaContrasena = document.getElementById("nuevaContrasena").value;
+    const confirmarContrasena = document.getElementById("confirmarContrasena").value;
     
-    // Configurar el título según el desafío
-    switch(desafioId) {
-        case 'termo-tupper':
-            quizTitulo.innerHTML = '<i class="fas fa-question-circle"></i> Quiz: Mes del Termo y Tupper';
-            break;
-        case 'bolsa-ecologica':
-            quizTitulo.innerHTML = '<i class="fas fa-question-circle"></i> Quiz: Bolsa Ecológica';
-            break;
-        case 'trueque-prendas':
-            quizTitulo.innerHTML = '<i class="fas fa-question-circle"></i> Quiz: Trueque de Prendas';
-            break;
-        case 'ahorro-agua':
-            quizTitulo.innerHTML = '<i class="fas fa-question-circle"></i> Quiz: Ahorro de Agua';
-            break;
-        case 'recicla-pet':
-            quizTitulo.innerHTML = '<i class="fas fa-question-circle"></i> Quiz: Reciclaje de PET';
-            break;
-        case 'recicla-tapitas':
-            quizTitulo.innerHTML = '<i class="fas fa-question-circle"></i> Quiz: Reciclaje de Tapitas';
-            break;
-    }
-    
-    // Obtener preguntas según el desafío
-    const preguntas = obtenerPreguntasQuiz(desafioId);
-    
-    // Generar HTML para cada pregunta
-    preguntas.forEach((pregunta, index) => {
-        const questionDiv = document.createElement('div');
-        questionDiv.className = 'quiz-question';
-        questionDiv.innerHTML = `
-            <h4><span class="question-number">${index + 1}.</span> ${pregunta.pregunta}</h4>
-            <div class="quiz-options">
-                ${pregunta.opciones.map((opcion, i) => `
-                    <label class="quiz-option">
-                        <input type="radio" name="pregunta${index}" value="${i}" required>
-                        <span>${opcion}</span>
-                    </label>
-                `).join('')}
-            </div>
-        `;
-        quizQuestions.appendChild(questionDiv);
-    });
-    
-    // Mostrar el modal
-    quizModal.style.display = 'flex';
-}
-
-function evaluarQuiz() {
-    const usuarioActual = JSON.parse(localStorage.getItem('usuario_actual'));
-    if (!usuarioActual) return;
-    
-    const preguntas = document.querySelectorAll('.quiz-question');
-    let respuestasCorrectas = 0;
-    let todasRespondidas = true;
-    
-    preguntas.forEach((pregunta, index) => {
-        const opciones = pregunta.querySelectorAll('input[type="radio"]');
-        const respuestaSeleccionada = Array.from(opciones).findIndex(opcion => opcion.checked);
-        
-        if (respuestaSeleccionada === -1) {
-            todasRespondidas = false;
-            return;
-        }
-        
-        // Obtener la respuesta correcta según el desafío
-        const desafioId = obtenerDesafioIdActual();
-        const preguntasQuiz = obtenerPreguntasQuiz(desafioId);
-        
-        if (respuestaSeleccionada === preguntasQuiz[index].respuestaCorrecta) {
-            respuestasCorrectas++;
-        }
-    });
-    
-    if (!todasRespondidas) {
-        mostrarMensaje('Por favor, responde todas las preguntas antes de enviar.', 'error');
+    // Validar campos
+    if (!identificador || !nuevaContrasena || !confirmarContrasena) {
+        mostrarMensaje("Por favor, completa todos los campos", "error");
         return;
     }
     
-    // Calcular puntos adicionales (10 puntos por respuesta correcta)
-    const puntosAdicionales = respuestasCorrectas * 10;
-    
-    // Actualizar puntos del usuario
-    usuarioActual.puntos += puntosAdicionales;
-    localStorage.setItem('usuario_actual', JSON.stringify(usuarioActual));
-    
-    // Mostrar resultados
-    const quizResults = document.getElementById('quizResults');
-    const quizScore = document.getElementById('quizScore');
-    const resultMessage = document.getElementById('resultMessage');
-    
-    quizScore.textContent = `${respuestasCorrectas}/${preguntas.length}`;
-    
-    let mensaje = '';
-    if (respuestasCorrectas === preguntas.length) {
-        mensaje = `
-            <div class="success-message">
-                <i class="fas fa-check-circle"></i>
-                <strong>¡Excelente!</strong> Has respondido correctamente todas las preguntas.
-                Has ganado ${puntosAdicionales} puntos adicionales.
-            </div>
-        `;
-    } else if (respuestasCorrectas >= preguntas.length / 2) {
-        mensaje = `
-            <div class="success-message">
-                <i class="fas fa-thumbs-up"></i>
-                <strong>¡Buen trabajo!</strong> Has respondido correctamente ${respuestasCorrectas} de ${preguntas.length} preguntas.
-                Has ganado ${puntosAdicionales} puntos adicionales.
-            </div>
-        `;
-    } else {
-        mensaje = `
-            <div class="error-message">
-                <i class="fas fa-exclamation-circle"></i>
-                <strong>¡Sigue intentando!</strong> Has respondido correctamente ${respuestasCorrectas} de ${preguntas.length} preguntas.
-                Has ganado ${puntosAdicionales} puntos adicionales.
-            </div>
-        `;
+    // Validar que las contraseñas coincidan
+    if (nuevaContrasena !== confirmarContrasena) {
+        mostrarMensaje("Las contraseñas no coinciden", "error");
+        return;
     }
     
-    resultMessage.innerHTML = mensaje;
-    document.getElementById('quizQuestions').style.display = 'none';
-    quizResults.style.display = 'block';
-    
-    // Actualizar la barra de progreso
-    actualizarBarraProgreso(usuarioActual);
-}
-
-// ... existing code ...
-    
-function obtenerPreguntasQuiz(desafioId) {
-    switch(desafioId) {
-        case 'termo-tupper':
-            return [
-                {
-                    pregunta: "¿Cuál es el principal beneficio de usar termo y tupper?",
-                    opciones: [
-                        "Reducir el uso de plásticos desechables",
-                        "Ahorrar dinero en comida",
-                        "Mantener la comida más caliente",
-                        "Todas las anteriores"
-                    ],
-                    respuestaCorrecta: 0
-                },
-                {
-                    pregunta: "¿Cuántos plásticos desechables se pueden evitar al mes usando termo y tupper?",
-                    opciones: [
-                        "5-10",
-                        "10-20",
-                        "20-30",
-                        "Más de 30"
-                    ],
-                    respuestaCorrecta: 3
-                },
-                {
-                    pregunta: "¿Qué tipo de termo es más recomendable para el medio ambiente?",
-                    opciones: [
-                        "Plástico desechable",
-                        "Acero inoxidable",
-                        "Vidrio",
-                        "Tanto B como C son correctas"
-                    ],
-                    respuestaCorrecta: 3
-                }
-            ];
-        case 'bolsa-ecologica':
-            return [
-                {
-                    pregunta: "¿Cuánto tiempo tarda una bolsa de plástico en degradarse?",
-                    opciones: [
-                        "1 año",
-                        "10 años",
-                        "100 años",
-                        "Más de 500 años"
-                    ],
-                    respuestaCorrecta: 3
-                },
-                {
-                    pregunta: "¿Cuál es el material más recomendado para bolsas ecológicas?",
-                    opciones: [
-                        "Algodón orgánico",
-                        "Yute",
-                        "Tela reciclada",
-                        "Todas las anteriores"
-                    ],
-                    respuestaCorrecta: 3
-                },
-                {
-                    pregunta: "¿Cuántas bolsas de plástico se pueden reemplazar con una bolsa ecológica?",
-                    opciones: [
-                        "50-100",
-                        "100-200",
-                        "200-300",
-                        "Más de 300"
-                    ],
-                    respuestaCorrecta: 3
-                }
-            ];
-        case 'trueque-prendas':
-            return [
-                {
-                    pregunta: "¿Cuál es el principal beneficio del trueque de prendas?",
-                    opciones: [
-                        "Ahorrar dinero",
-                        "Reducir residuos textiles",
-                        "Renovar el guardarropa",
-                        "Todas las anteriores"
-                    ],
-                    respuestaCorrecta: 3
-                },
-                {
-                    pregunta: "¿Qué tipo de prendas son ideales para el trueque?",
-                    opciones: [
-                        "Solo ropa nueva",
-                        "Ropa en buen estado",
-                        "Cualquier tipo de ropa",
-                        "Solo ropa de marca"
-                    ],
-                    respuestaCorrecta: 1
-                },
-                {
-                    pregunta: "¿Cuánta agua se ahorra al reutilizar una prenda de ropa?",
-                    opciones: [
-                        "1000 litros",
-                        "2000 litros",
-                        "3000 litros",
-                        "4000 litros"
-                    ],
-                    respuestaCorrecta: 2
-                }
-            ];
-        case 'ahorro-agua':
-            return [
-                {
-                    pregunta: "¿Cuánta agua se puede ahorrar al mes usando una botella en el inodoro?",
-                    opciones: [
-                        "100-200 litros",
-                        "200-300 litros",
-                        "300-400 litros",
-                        "Más de 400 litros"
-                    ],
-                    respuestaCorrecta: 3
-                },
-                {
-                    pregunta: "¿Qué tipo de botella es la más recomendada para este propósito?",
-                    opciones: [
-                        "Botella de plástico vacía",
-                        "Botella de vidrio",
-                        "Botella de metal",
-                        "Cualquiera de las anteriores"
-                    ],
-                    respuestaCorrecta: 0
-                },
-                {
-                    pregunta: "¿Cuál es el porcentaje de agua que se ahorra en cada descarga?",
-                    opciones: [
-                        "10-20%",
-                        "20-30%",
-                        "30-40%",
-                        "40-50%"
-                    ],
-                    respuestaCorrecta: 2
-                }
-            ];
-        case 'recicla-pet':
-            return [
-                {
-                    pregunta: "¿Cuánto PET se necesita recolectar para completar el desafío?",
-                    opciones: [
-                        "1 kg",
-                        "3 kg",
-                        "5 kg",
-                        "10 kg"
-                    ],
-                    respuestaCorrecta: 2
-                },
-                {
-                    pregunta: "¿Qué se debe hacer con las botellas antes de reciclarlas?",
-                    opciones: [
-                        "Lavarlas y aplastarlas",
-                        "Solo lavarlas",
-                        "Solo aplastarlas",
-                        "No es necesario hacer nada"
-                    ],
-                    respuestaCorrecta: 0
-                },
-                {
-                    pregunta: "¿Cuántas botellas PET se necesitan aproximadamente para hacer 1 kg?",
-                    opciones: [
-                        "20-25 botellas",
-                        "25-30 botellas",
-                        "30-35 botellas",
-                        "35-40 botellas"
-                    ],
-                    respuestaCorrecta: 1
-                }
-            ];
-        case 'recicla-tapitas':
-            return [
-                {
-                    pregunta: "¿Cuántas tapitas se necesitan recolectar para completar el desafío?",
-                    opciones: [
-                        "50",
-                        "75",
-                        "100",
-                        "150"
-                    ],
-                    respuestaCorrecta: 2
-                },
-                {
-                    pregunta: "¿Para qué se utilizan las tapitas recolectadas?",
-                    opciones: [
-                        "Para reciclaje de plástico",
-                        "Para donaciones a causas benéficas",
-                        "Para artesanías",
-                        "Todas las anteriores"
-                    ],
-                    respuestaCorrecta: 3
-                },
-                {
-                    pregunta: "¿Qué tipo de tapitas son las más valiosas para reciclar?",
-                    opciones: [
-                        "Solo tapitas de refresco",
-                        "Solo tapitas de agua",
-                        "Todas las tapitas de plástico",
-                        "Solo tapitas de color"
-                    ],
-                    respuestaCorrecta: 2
-                }
-            ];
-        default:
-            return [];
+    // Validar longitud de contraseña
+    if (nuevaContrasena.length < 6) {
+        mostrarMensaje("La contraseña debe tener al menos 6 caracteres", "error");
+        return;
     }
+    
+    // Buscar usuario por correo o matrícula
+    const usuarios = JSON.parse(localStorage.getItem("usuarios") || "[]");
+    const usuario = usuarios.find(u => 
+        u.email === identificador || u.matricula === identificador
+    );
+    
+    if (!usuario) {
+        mostrarMensaje("No se encontró un usuario con ese correo o matrícula", "error");
+        return;
+    }
+    
+    // Actualizar contraseña
+    usuario.clave = nuevaContrasena;
+    
+    // Guardar cambios en localStorage
+    const index = usuarios.findIndex(u => u.email === usuario.email);
+    if (index !== -1) {
+        usuarios[index] = usuario;
+        localStorage.setItem("usuarios", JSON.stringify(usuarios));
+    }
+    
+    // Si el usuario está logueado, actualizar también su sesión actual
+    const usuarioActual = JSON.parse(localStorage.getItem("usuario_actual"));
+    if (usuarioActual && usuarioActual.email === usuario.email) {
+        usuarioActual.clave = nuevaContrasena;
+        localStorage.setItem("usuario_actual", JSON.stringify(usuarioActual));
+    }
+    
+    // Mostrar mensaje de éxito
+    mostrarMensaje("Contraseña actualizada exitosamente", "success");
+    
+    // Cerrar modal
+    cerrarModalRecuperarContrasena();
+    
+    // Limpiar formulario
+    document.getElementById("formRecuperarContrasena").reset();
 }
 
-// ... existing code ...
-    
+// Cerrar modal de recuperar contraseña al hacer clic fuera de él
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById("recuperarContrasenaModal");
+    if (event.target === modal) {
+        cerrarModalRecuperarContrasena();
+    }
+});
